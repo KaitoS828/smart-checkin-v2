@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/admin';
 import { generateSecretCode } from '@/lib/utils/secret-code';
 import { createCalendarEvent, deleteCalendarEvent } from '@/lib/google-calendar/client';
+import { registerSwitchBotKey, deleteSwitchBotKey } from '@/lib/switchbot/client';
 import { z } from 'zod';
 
 // Validation schema for creating a reservation
@@ -192,6 +193,45 @@ export async function POST(request: NextRequest) {
         .eq('id', reservation.id);
     }
 
+    // SwitchBot キーパッドにパスコードを登録（失敗しても予約作成は成功扱い）
+    try {
+      // 物件のデバイスIDとチェックイン・アウト時刻を取得
+      let switchbotDeviceId: string | null = null;
+      let ciTime = '15:00';
+      let coTime = '11:00';
+
+      if (property_id) {
+        const { data: prop } = await supabase
+          .from('properties')
+          .select('switchbot_keypad_device_id, check_in_time, check_out_time')
+          .eq('id', property_id)
+          .single();
+        switchbotDeviceId = prop?.switchbot_keypad_device_id ?? null;
+        ciTime = prop?.check_in_time ?? '15:00';
+        coTime = prop?.check_out_time ?? '11:00';
+      }
+
+      if (switchbotDeviceId) {
+        const switchbotKeyId = await registerSwitchBotKey(
+          switchbotDeviceId,
+          reservation.secret_code,
+          reservation.door_pin,
+          reservation.check_in_date,
+          reservation.check_out_date,
+          ciTime,
+          coTime
+        );
+        if (switchbotKeyId !== null) {
+          await supabase
+            .from('reservations')
+            .update({ switchbot_key_id: switchbotKeyId })
+            .eq('id', reservation.id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to register SwitchBot key:', err);
+    }
+
     return NextResponse.json({ reservation }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error:', error);
@@ -265,18 +305,38 @@ export async function DELETE(request: NextRequest) {
     const { ids } = validation.data;
     const supabase = await createClient();
 
-    // Google Calendarイベントを先に取得して削除
+    // Google Calendar & SwitchBot のデータを先に取得
     const { data: reservations } = await supabase
       .from('reservations')
-      .select('google_calendar_event_id')
+      .select('google_calendar_event_id, switchbot_key_id, property_id')
       .in('id', ids);
 
     if (reservations) {
-      await Promise.all(
-        reservations
+      // 物件のSwitchBotデバイスIDを一括取得
+      const propertyIds = [...new Set(reservations.map((r) => r.property_id).filter(Boolean))];
+      const propertyDeviceMap: Record<string, string> = {};
+      if (propertyIds.length > 0) {
+        const { data: props } = await supabase
+          .from('properties')
+          .select('id, switchbot_keypad_device_id')
+          .in('id', propertyIds);
+        props?.forEach((p) => {
+          if (p.switchbot_keypad_device_id) propertyDeviceMap[p.id] = p.switchbot_keypad_device_id;
+        });
+      }
+
+      await Promise.all([
+        // Google Calendarイベント削除
+        ...reservations
           .filter((r) => r.google_calendar_event_id)
-          .map((r) => deleteCalendarEvent(r.google_calendar_event_id!))
-      );
+          .map((r) => deleteCalendarEvent(r.google_calendar_event_id!)),
+        // SwitchBot パスコード削除
+        ...reservations
+          .filter((r) => r.switchbot_key_id && r.property_id && propertyDeviceMap[r.property_id])
+          .map((r) => deleteSwitchBotKey(propertyDeviceMap[r.property_id!], r.switchbot_key_id!).catch((err) =>
+            console.error('Failed to delete SwitchBot key:', err)
+          )),
+      ]);
     }
 
     const { error } = await supabase

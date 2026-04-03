@@ -12,6 +12,7 @@ const PropertySchema = z.object({
   wifi_ssid: z.string().nullable().optional(),
   wifi_password: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  switchbot_keypad_device_id: z.string().nullable().optional(),
 });
 
 async function requireAdmin(request: NextRequest): Promise<boolean> {

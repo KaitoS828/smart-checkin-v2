@@ -4,7 +4,7 @@ import { verifySessionToken } from '@/lib/auth/session';
 const ALLOWED_ORIGINS =
   process.env.NODE_ENV === 'production'
     ? (process.env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3001'];
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3030'];
 
 /**
  * Middleware: Admin routes protection with signed session tokens + CSRF origin check

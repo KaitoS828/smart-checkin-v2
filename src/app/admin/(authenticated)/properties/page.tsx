@@ -25,6 +25,7 @@ interface PropertyFormData {
   wifi_ssid: string;
   wifi_password: string;
   notes: string;
+  switchbot_keypad_device_id: string;
 }
 
 const emptyForm: PropertyFormData = {
@@ -36,6 +37,7 @@ const emptyForm: PropertyFormData = {
   wifi_ssid: '',
   wifi_password: '',
   notes: '',
+  switchbot_keypad_device_id: '',
 };
 
 function toForm(p: Property): PropertyFormData {
@@ -48,6 +50,7 @@ function toForm(p: Property): PropertyFormData {
     wifi_ssid: p.wifi_ssid ?? '',
     wifi_password: p.wifi_password ?? '',
     notes: p.notes ?? '',
+    switchbot_keypad_device_id: p.switchbot_keypad_device_id ?? '',
   };
 }
 
@@ -98,6 +101,9 @@ function PropertyForm({
       <Field label="備考・内部メモ">
         <textarea className={textareaCls} rows={2} value={form.notes} onChange={set('notes')} placeholder="内部メモ（ゲストには非表示）" />
       </Field>
+      <Field label="SwitchBot キーパッド デバイスID">
+        <input className={inputCls} value={form.switchbot_keypad_device_id} onChange={set('switchbot_keypad_device_id')} placeholder="例：F76A7198EAD4" />
+      </Field>
       <div className="flex gap-2 pt-2">
         <button
           onClick={() => onSave(form)}
@@ -137,6 +143,7 @@ export default function PropertiesPage() {
           wifi_ssid: form.wifi_ssid || null,
           wifi_password: form.wifi_password || null,
           notes: form.notes || null,
+          switchbot_keypad_device_id: form.switchbot_keypad_device_id || null,
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -164,6 +171,7 @@ export default function PropertiesPage() {
           wifi_ssid: form.wifi_ssid || null,
           wifi_password: form.wifi_password || null,
           notes: form.notes || null,
+          switchbot_keypad_device_id: form.switchbot_keypad_device_id || null,
         }),
       });
       if (!res.ok) throw new Error('Failed');

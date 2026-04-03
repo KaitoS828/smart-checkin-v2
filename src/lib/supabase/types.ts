@@ -10,6 +10,7 @@ export interface Property {
   wifi_ssid: string | null;
   wifi_password: string | null;
   notes: string | null;
+  switchbot_keypad_device_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +41,8 @@ export interface Reservation {
   stay_type: string;
   notes: string | null;
   cleaning_confirmed: boolean;
+  google_calendar_event_id: string | null;
+  switchbot_key_id: number | null;
   created_at: string;
   updated_at: string;
 }
