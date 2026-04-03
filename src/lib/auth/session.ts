@@ -14,7 +14,11 @@ function fromHex(hex: string): Uint8Array {
   return arr;
 }
 
-const SESSION_SECRET = (() => {
+let _cachedSecret: string | null = null;
+
+function getSessionSecret(): string {
+  if (_cachedSecret) return _cachedSecret;
+
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
@@ -23,13 +27,15 @@ const SESSION_SECRET = (() => {
     console.warn('[security] SESSION_SECRET not set. Using random value — sessions will not persist across restarts.');
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
-    return toHex(bytes);
+    _cachedSecret = toHex(bytes);
+    return _cachedSecret;
   }
-  return secret;
-})();
+  _cachedSecret = secret;
+  return _cachedSecret;
+}
 
 async function getHmacKey(): Promise<CryptoKey> {
-  const keyBytes = new TextEncoder().encode(SESSION_SECRET);
+  const keyBytes = new TextEncoder().encode(getSessionSecret());
   return crypto.subtle.importKey(
     'raw',
     keyBytes.buffer as ArrayBuffer,
