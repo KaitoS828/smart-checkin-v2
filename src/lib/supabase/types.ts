@@ -11,6 +11,8 @@ export interface Property {
   wifi_password: string | null;
   notes: string | null;
   switchbot_keypad_device_id: string | null;
+  google_calendar_id: string | null;
+  ical_url: string | null;
   created_at: string;
   updated_at: string;
 }

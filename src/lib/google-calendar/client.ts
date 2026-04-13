@@ -14,7 +14,7 @@ function getCalendarClient() {
   return google.calendar({ version: 'v3', auth });
 }
 
-const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID ?? 'primary';
+const DEFAULT_CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID ?? 'primary';
 
 interface ReservationEvent {
   reservationId: string;
@@ -23,6 +23,7 @@ interface ReservationEvent {
   checkInDate?: string | null;   // YYYY-MM-DD
   checkOutDate?: string | null;  // YYYY-MM-DD
   guestName?: string | null;
+  calendarId?: string | null;
 }
 
 /** 予約をGoogleカレンダーに追加してイベントIDを返す */
@@ -33,6 +34,7 @@ export async function createCalendarEvent(reservation: ReservationEvent): Promis
 
   try {
     const calendar = getCalendarClient();
+    const targetCalendarId = reservation.calendarId || DEFAULT_CALENDAR_ID;
 
     const title = reservation.guestName
       ? `【チェックイン】${reservation.guestName}`
@@ -43,7 +45,7 @@ export async function createCalendarEvent(reservation: ReservationEvent): Promis
     const checkOut = reservation.checkOutDate ?? checkIn;
 
     const event = await calendar.events.insert({
-      calendarId: CALENDAR_ID,
+      calendarId: targetCalendarId,
       requestBody: {
         summary: title,
         description: [
@@ -65,15 +67,39 @@ export async function createCalendarEvent(reservation: ReservationEvent): Promis
 }
 
 /** Googleカレンダーのイベントを削除する */
-export async function deleteCalendarEvent(eventId: string): Promise<void> {
+export async function deleteCalendarEvent(eventId: string, calendarId?: string | null): Promise<void> {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
     return;
   }
 
   try {
     const calendar = getCalendarClient();
-    await calendar.events.delete({ calendarId: CALENDAR_ID, eventId });
+    const targetCalendarId = calendarId || DEFAULT_CALENDAR_ID;
+    await calendar.events.delete({ calendarId: targetCalendarId, eventId });
   } catch (err) {
     console.error('Google Calendar event deletion failed:', err);
+  }
+}
+
+/** 指定期間内のイベントを取得する */
+export async function getCalendarEvents(calendarId: string | null, timeMin: string, timeMax: string) {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
+    return [];
+  }
+  try {
+    const calendar = getCalendarClient();
+    const targetCalendarId = calendarId || DEFAULT_CALENDAR_ID;
+    
+    const res = await calendar.events.list({
+      calendarId: targetCalendarId,
+      timeMin: new Date(timeMin).toISOString(),
+      timeMax: new Date(timeMax).toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+    return res.data.items || [];
+  } catch (err) {
+    console.error('Google Calendar event fetch failed:', err);
+    return [];
   }
 }
