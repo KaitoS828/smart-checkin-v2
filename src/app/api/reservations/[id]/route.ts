@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
-import { verifySessionToken } from '@/lib/auth/session';
 
 // Validation schema for updating guest info
 const UpdateGuestInfoSchema = z.object({
@@ -25,12 +24,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Admin-only: verify session
-  const sessionToken = request.cookies.get('admin_session')?.value;
-  if (!sessionToken || !(await verifySessionToken(sessionToken))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const { id } = await params;
     const supabase = await createClient();
