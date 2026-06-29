@@ -23,6 +23,7 @@ interface ReservationEvent {
   checkInDate?: string | null;   // YYYY-MM-DD
   checkOutDate?: string | null;  // YYYY-MM-DD
   guestName?: string | null;
+  propertyName?: string | null;
   calendarId?: string | null;
 }
 
@@ -36,9 +37,10 @@ export async function createCalendarEvent(reservation: ReservationEvent): Promis
     const calendar = getCalendarClient();
     const targetCalendarId = reservation.calendarId || DEFAULT_CALENDAR_ID;
 
+    const prefix = reservation.propertyName ? `【${reservation.propertyName}】` : '【チェックイン】';
     const title = reservation.guestName
-      ? `【チェックイン】${reservation.guestName}`
-      : `【チェックイン】${reservation.secretCode}`;
+      ? `${prefix}${reservation.guestName}`
+      : `${prefix}${reservation.secretCode}`;
 
     // 日付がない場合は今日の日付を使用
     const checkIn = reservation.checkInDate ?? new Date().toISOString().split('T')[0];
@@ -63,6 +65,34 @@ export async function createCalendarEvent(reservation: ReservationEvent): Promis
   } catch (err) {
     console.error('Google Calendar event creation failed:', err);
     return null;
+  }
+}
+
+/** Googleカレンダーのイベントタイトルを更新する */
+export async function updateCalendarEventTitle(
+  eventId: string,
+  reservation: ReservationEvent
+): Promise<void> {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
+    return;
+  }
+
+  try {
+    const calendar = getCalendarClient();
+    const targetCalendarId = reservation.calendarId || DEFAULT_CALENDAR_ID;
+
+    const prefix = reservation.propertyName ? `【${reservation.propertyName}】` : '【チェックイン】';
+    const title = reservation.guestName
+      ? `${prefix}${reservation.guestName}`
+      : `${prefix}${reservation.secretCode}`;
+
+    await calendar.events.patch({
+      calendarId: targetCalendarId,
+      eventId,
+      requestBody: { summary: title },
+    });
+  } catch (err) {
+    console.error('Google Calendar event update failed:', err);
   }
 }
 
